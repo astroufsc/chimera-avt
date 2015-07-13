@@ -20,9 +20,10 @@ class NoAVTCameraFound(Exception):
     pass
 
 class AVT(CameraBase):
-    __config__ = {"cameraId": None,
-                  "PixelFormat": "Mono12",
-                  "GVSPDriver" : "Socket"}
+    __config__ = {"cameraId": 'None',
+                  "PixelFormat": "Mono8",
+                  "GVSPDriver" : "Socket",
+                  "vimba_version" : "0.0.0"}
 
     def __init__(self):
         CameraBase.__init__(self)
@@ -57,7 +58,7 @@ class AVT(CameraBase):
         self["camera_model"] = self.camera0.DeviceModelName
         self["device"] = "Ethernet"
         self["ccd_model"] = self.camera0.SensorType
-        self["CCD"] = CCD.TRACKING
+        # self["CCD"] = CCD.TRACKING
         self.camera0.DeviceTemperatureSelector = "Sensor"
 
         readoutMode = ReadoutMode()
@@ -92,14 +93,14 @@ class AVT(CameraBase):
 
         # Enable discovery for GigE cameras and get list of available cameras
         if self.system.GeVTLIsPresent:
-            self.system.runFeatureCommand("GEVDiscoveryAllOnce")
+            self.system.runFeatureCommand("GeVDiscoveryAllOnce")
             time.sleep(0.2)
 
         cameraIds = self.vimba.getCameraIds()
 
         self.camera0 = None
 
-        if self["cameraId"] and self["cameraId"] in cameraIds:
+        if self["cameraId"] != 'None' and self["cameraId"] in cameraIds:
             self.camera0 = self.vimba.getCamera(self["cameraId"])
         elif len(cameraIds) > 0:
             self.camera0 = self.vimba.getCamera(cameraIds[0])
@@ -107,6 +108,7 @@ class AVT(CameraBase):
         else:
             raise NoAVTCameraFound("No AVT camera found on this network.")
 
+        self.camera0.openCamera()
         # Setup camera
 
         self.camera0.AcquisitionMode = "SingleFrame"
@@ -121,6 +123,12 @@ class AVT(CameraBase):
         self.camera0.endCapture()
         self.camera0.revokeAllFrames()
         self.vimba.shutdown()
+
+    def isCooling(self):
+        return False
+
+    def isFanning(self):
+        return False
 
     @lock
     def getTemperature(self):
@@ -139,10 +147,10 @@ class AVT(CameraBase):
         return self._adcs
 
     def getPhysicalSize(self):
-        return None
+        return -1,-1
 
     def getPixelSize(self):
-        return None
+        return -1,-1
 
     def getOverscanSize(self, ccd=None):
         return (0,0)
@@ -161,8 +169,8 @@ class AVT(CameraBase):
         # create a new frame
         self.frame0 = self.camera0.getFrame()
 
-        # annouce frame
-        self.frame0.annouceFrame()
+        # announce frame
+        self.frame0.announceFrame()
 
         self.exposeBegin(imageRequest)
 
@@ -206,11 +214,11 @@ class AVT(CameraBase):
 
         self.readoutBegin(imageRequest)
 
-        img = np.ndarray(buffer = self.frame0.getBuferByteData(),
+        img = np.ndarray(buffer = self.frame0.getBufferByteData(),
                          dtype=np.uint8,
                          shape = (self.frame0.height,
                                   self.frame0.width,
-                                  1))
+                                  1))[:,:,0]
 
         proxy = self._saveImage(imageRequest,img,
             {"frame_temperature" : self.lastFrameTemp,
