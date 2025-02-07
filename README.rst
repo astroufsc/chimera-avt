@@ -1,8 +1,7 @@
-chimera-template plugin
+chimera-avt plugin
 =======================
 
-This is a template plugin for the chimera observatory control system
-https://github.com/astroufsc/chimera.
+Chimera (https://github.com/astroufsc/chimera) driver for Allied Vision Technology (AVT) camera.
 
 Usage
 -----
